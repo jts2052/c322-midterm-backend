@@ -54,7 +54,21 @@ public class FileRepository {
         return id;
     }
 
-
+    public int add(Quiz quiz) throws IOException {
+        Path path = Paths.get(QUIZ_DATABASE_NAME);
+        List<Quiz> quizzes = findAllQuizzes();
+        int id = 0;
+        for(Quiz q : quizzes) {
+            if(q.getId() > id) {
+                id = q.getId();
+            }
+        }
+        id = id + 1;
+        quiz.setId(id);
+        String data = quiz.toLine(id);
+        appendToFile(path, data + NEW_LINE);
+        return id;
+    }
 
 
 
@@ -73,8 +87,34 @@ public class FileRepository {
         return result;
     }
 
+    public Quiz getQuiz(int id) throws IOException {
+        List<Quiz> quizzes = findAllQuizzes();
+        for (Quiz quiz : quizzes) {
+            if (quiz.getId() == id) {
+                return quiz;
+            }
+        }
+        throw new IOException("404 Not Found");
+    }
 
-
+    public List<Quiz> findAllQuizzes() throws IOException {
+        List<Quiz> result = new ArrayList<>();
+        Path path = Paths.get(QUIZ_DATABASE_NAME);
+        if (Files.exists(path)) {
+            List<String> data = Files.readAllLines(path);
+            for (String line : data) {
+                if(line.trim().length() != 0) {
+                    Quiz q = Quiz.fromLine(line);
+                    result.add(q);
+                }
+            }
+        }
+        for (Quiz quiz : result) {
+            List<Question> questions = find(quiz.getQuestionIds());
+            quiz.setQuestions(questions);
+        }
+        return result;
+    }
 
 
     public List<Question> find(String answer) throws IOException {
@@ -99,7 +139,15 @@ public class FileRepository {
         return result;
     }
 
-
+    public List<Quiz> findQuizzes(List<Integer> ids) throws IOException {
+        List<Quiz> quizzes = findAllQuizzes();
+        List<Quiz> result = new ArrayList<>();
+        for (int id : ids) {
+            Quiz q = quizzes.stream().filter(x -> x.getId() == id).toList().get(0);
+            result.add(q);
+        }
+        return result;
+    }
 
     public Question get(Integer id) throws IOException {
         List<Question> questions = findAllQuestions();
@@ -131,5 +179,40 @@ public class FileRepository {
         return image;
     }
 
+    public void updateQuiz(int id, Quiz newQuiz) throws IOException {
+        List<Quiz> quizzes = findAllQuizzes();
+        boolean found = false;
+
+        System.out.println(newQuiz);
+
+        for (int i = 0; i < quizzes.size(); i++) {
+            if (quizzes.get(i).getId() == id) {
+                found = true;
+                Quiz existingQuiz = quizzes.get(i);
+
+                if (newQuiz.getTitle() != null) {
+                    existingQuiz.setTitle(newQuiz.getTitle());
+                }
+
+                if (newQuiz.getQuestionIds() != null) {
+                    existingQuiz.setQuestionIds(newQuiz.getQuestionIds());
+                }
+
+                quizzes.set(i, existingQuiz);
+                break;
+            }
+        }
+
+        if (!found) {
+            throw new IOException("404 Not Found");
+        }
+
+        Path path = Paths.get(QUIZ_DATABASE_NAME);
+        Files.write(path, "".getBytes());
+        for (Quiz q : quizzes) {
+            String data = q.toLine(q.getId());
+            appendToFile(path, data + NEW_LINE);
+        }
+    }
 
 }
